@@ -44,7 +44,8 @@ class Game:
         self.is_over=False
         self.score=0
         items.make_new_level()
-        powerup.make_new_level()
+        powerup_double.make_new_level()
+        powerup_extend.make_new_level()
         racket.restore()
         self.level=1
 
@@ -90,11 +91,16 @@ class Racket:
 racket= Racket()
 
 class Ball:
+    number_of_balls=1
     def __init__(self):
         self.y , self.x = racket.midpoint()
         self.speed_x = 1
         self.speed_y = -1
-        self.last_move = None
+    def set_position(self,a,b):
+        self.x = a
+        self.y = b
+    def set_speed_x(self,vel_x):
+        self.speed_x = vel_x
     def sidewalls(self):
         self.speed_x = -1*self.speed_x
 
@@ -153,8 +159,8 @@ class Powerup:
     def set_falling(self,x,y):
         self.falling.append((x,y))
     def falling_powerup(self):
-        for x,y in self.falling:
-            if y==Game.y_max-2:
+        for x, y in self.falling[:]:
+            if y==Game.y_max-1:
                 self.falling.remove((x,y))
             else:
                 self.falling.remove((x,y))
@@ -167,8 +173,7 @@ class Powerup:
         self.powerup_count = random.randint(20, 50)
         self.powerup_pos = [(random.randint(1, Game.x_max - 2), random.randint(1, Game.y_max - 10)) for _ in range(self.powerup_count)]
 
-ball = Ball()
-all_balls=[ball]
+balls_list = [Ball()]
 def generate_background():
     back_ground = [[' ' for _ in range(Game.x_max)] for _ in range(Game.y_max)]
     back_ground[0] = ['-' for _ in range(Game.x_max)]
@@ -180,41 +185,87 @@ def generate_background():
 
 back_ground = generate_background()
 items = Items()
-powerup = Powerup()
-
-def rendergrid(x_pos, y_pos):
+powerup_double = Powerup()
+powerup_extend=Powerup()
+def rendergrid():
     grid = [row[:] for row in back_ground]
     stick= racket.position()
-    game.check_over(x_pos, y_pos, stick)
-    if (x_pos, y_pos) in items.get_positions():
-        items.remove_item((x_pos, y_pos))
-        # ball.topwall()
-
-    ###Falling Powerups
-    if (x_pos, y_pos) in powerup.get_powerup_positions():
-        powerup.remove_powerup((x_pos, y_pos))
-        powerup.set_falling(x_pos, y_pos)
-    powerup.falling_powerup()
-    falling_powerup = powerup.get_fallinglist()
-    for x,y in falling_powerup:
-        grid[y][x] = '#'
-        if (y,x) in stick:
-            racket.inc_length()
-            # all_balls.append(Ball())
-            # powerup.activate_powerup()
-            # stick = racket.position()
 
     ###Render Items
     item_count= items.get_item_count()
     items_position = items.get_positions()
     for i in range(item_count):
         grid[items_position[i][1]][items_position[i][0]] = '*'  ####Item
-    ###Render Powerups
-    powerup_count= powerup.get_powerup_count()
-    powerup_position = powerup.get_powerup_positions()
+
+    ###Render Double Powerups
+    powerup_count= powerup_double.get_powerup_count()
+    powerup_position = powerup_double.get_powerup_positions()
     for i in range(powerup_count):
         grid[powerup_position[i][1]][powerup_position[i][0]] = '#' ####Powerup
+    falling_powerup = powerup_double.get_fallinglist()
+    for x,y in falling_powerup:
+        grid[y][x] = '#'
+        if (y,x) in stick:
+            new_list=[]
+            for b in balls_list:
+                new_ball = Ball()
+                new_ball.set_position(b.x, b.y)
+                new_list.append(new_ball)
+            balls_list.extend(new_list)
+            Ball.number_of_balls+=len(new_list)
 
+    #####Extend Powerup
+    powerup_count_extend= powerup_extend.get_powerup_count()
+    powerup_position_extend = powerup_extend.get_powerup_positions()
+    for i in range(powerup_count_extend):
+        grid[powerup_position_extend[i][1]][powerup_position_extend[i][0]] = '-' ####Powerup
+    falling_powerup_extend = powerup_extend.get_fallinglist()
+    for x,y in falling_powerup_extend:
+        grid[y][x] = '@'
+        if (y,x) in stick:
+            racket.inc_length()
+            powerup_extend.falling.remove((x, y))
+            # powerup.activate_powerup()
+            # stick = racket.position()
+
+    for u,v in stick:
+        grid[u][v] = '_'   ###Stick
+    for ball in balls_list:
+        renderball(ball)
+        if 0 <= ball.y < Game.y_max and 0 <= ball.x < Game.x_max:
+            grid[ball.y][ball.x] = 'o'
+
+    ###Score Card
+    print(' '*100+ f'Level:{game.get_level()}  Score:{game.get_score()*50}')
+    for row in grid:
+        print(''.join(row))
+    if items.get_item_count() == 0:
+        items.make_new_level()
+
+
+
+def renderball(ball):
+    x_pos, y_pos = ball.x, ball.y
+    if ball.y >= Game.y_max - 1:
+        if Ball.number_of_balls == 1:
+            game.is_over = True
+        else:
+            balls_list.remove(ball)
+            Ball.number_of_balls -= 1
+        return
+    if (x_pos, y_pos) in items.get_positions():
+        items.remove_item((x_pos, y_pos))
+        # ball.topwall()
+    ###Falling Powerups
+    if (x_pos, y_pos) in powerup_double.get_powerup_positions():
+        powerup_double.remove_powerup((x_pos, y_pos))
+        powerup_double.set_falling(x_pos, y_pos)
+    powerup_double.falling_powerup()
+
+    if (x_pos, y_pos) in powerup_extend.get_powerup_positions():
+        powerup_extend.remove_powerup((x_pos, y_pos))
+        powerup_extend.set_falling(x_pos, y_pos)
+    powerup_extend.falling_powerup()
 
     if y_pos==0:
         ball.topwall()
@@ -226,19 +277,10 @@ def rendergrid(x_pos, y_pos):
         ball.hitright()
     elif x_pos == 0 or x_pos == Game.x_max-1:
         ball.sidewalls()
-    for u,v in stick:
-        grid[u][v] = '_'   ###Stick
-    grid[y_pos][x_pos] = 'o'   ####Ball
-
-
-    print(' '*100+ f'Level:{game.get_level()}  Score:{game.get_score()*50}')
-    for row in grid:
-        print(''.join(row))
-    if items.get_item_count() == 0:
-        items.make_new_level()
 
 def readinput():
     print("WASD to move, Q to quit")
+    frame_rate=15   ####fps
     pause=False
     while True:
         if msvcrt.kbhit():
@@ -258,9 +300,10 @@ def readinput():
             break
         os.system('cls')
         if not pause:
-            ball.move()
-        rendergrid(ball.x, ball.y)
-        time.sleep(0.1)
+            for ball in balls_list:
+                ball.move()
+        rendergrid()
+        time.sleep(1/frame_rate)
 
 # ---------- GAME START ----------
 hide_cursor()
