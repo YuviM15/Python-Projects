@@ -56,7 +56,7 @@ class Racket:
         self.original_length= self.length
         self.x1 = Game.x_min+1
         self.x2 = self.x1 + self.length
-        self.y = Game.y_max-2
+        self.y = Game.y_max-3
         self.speed_x = 2
         self.divider=self.length//10
     def inc_length(self):
@@ -73,8 +73,8 @@ class Racket:
     def moveright(self):
         self.x1 += self.speed_x
         self.x2 = self.x1+ self.length
-        self.x1 = min(Game.x_max-2-self.length, self.x1)
-        self.x2 = min(Game.x_max-2, self.x2)
+        self.x1 = min(Game.x_max-1-self.length, self.x1)
+        self.x2 = min(Game.x_max-1, self.x2)
     def position(self):
         self.x2= min(self.x2,game.x_max-1)
         self.x1 = max(self.x1,Game.x_min+1)
@@ -128,7 +128,7 @@ class Ball:
 
 class Items:
     def __init__(self):
-        self.item_count = random.randint(15, 40)
+        self.item_count = random.randint(20, 70)
         self.items_pos = [(random.randint(1, Game.x_max - 2), random.randint(1, Game.y_max - 10)) for _ in range(self.item_count)]
     def remove_item(self,item):
         self.items_pos.remove(item)
@@ -140,12 +140,12 @@ class Items:
         return self.item_count
     def make_new_level(self):
         game.level += 1
-        self.item_count = random.randint(15, 40)
+        self.item_count = random.randint(40, 60)
         self.items_pos = [(random.randint(1, Game.x_max - 2), random.randint(1, Game.y_max - 10)) for _ in range(self.item_count)]
 
 class Powerup:
     def __init__(self):
-        self.powerup_count = random.randint(20, 50)
+        self.powerup_count = random.randint(10, 25)
         self.powerup_pos = [(random.randint(1, Game.x_max - 2), random.randint(1, Game.y_max - 10)) for _ in range(self.powerup_count)]
         self.falling = []
     def remove_powerup(self,item):
@@ -205,11 +205,12 @@ def rendergrid():
     falling_powerup = powerup_double.get_fallinglist()
     for x,y in falling_powerup:
         grid[y][x] = '#'
-        if (y,x) in stick:
+        if racket.y <= y <= racket.y + 1 and racket.x1 <= x < racket.x2:
             new_list=[]
             for b in balls_list:
                 new_ball = Ball()
                 new_ball.set_position(b.x, b.y)
+                # new_ball.set_speed_x(b.speed_x*-1)
                 new_list.append(new_ball)
             balls_list.extend(new_list)
             Ball.number_of_balls+=len(new_list)
@@ -221,8 +222,8 @@ def rendergrid():
         grid[powerup_position_extend[i][1]][powerup_position_extend[i][0]] = '-' ####Powerup
     falling_powerup_extend = powerup_extend.get_fallinglist()
     for x,y in falling_powerup_extend:
-        grid[y][x] = '@'
-        if (y,x) in stick:
+        grid[y][x] = '-'
+        if racket.y <= y <= racket.y + 1 and racket.x1 <= x < racket.x2:
             racket.inc_length()
             powerup_extend.falling.remove((x, y))
             # powerup.activate_powerup()
@@ -296,6 +297,8 @@ def readinput():
                 game.reset_game()
             elif key == 'p':
                 pause=pause^1
+            elif key == 'f':
+                frame_rate=max(5, frame_rate-5)
         if game.get_status():
             break
         os.system('cls')
@@ -307,9 +310,5 @@ def readinput():
 
 # ---------- GAME START ----------
 hide_cursor()
-try:
-    inputthread = threading.Thread(target=readinput)
-    inputthread.start()
-    inputthread.join()
-finally:
-    show_cursor()
+readinput()
+show_cursor()
